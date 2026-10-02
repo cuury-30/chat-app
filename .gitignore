@@ -1,0 +1,9 @@
+# 运行时生成
+node_modules/
+data.json
+server.log
+*.log
+
+# 系统
+.DS_Store
+Thumbs.db
