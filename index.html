@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>从零聊天 · 电脑版</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #f2f4f7; color: #1f2937; height: 100vh; overflow: hidden;
+  }
+  .hidden { display: none !important; }
+
+  /* ---- 登录页 ---- */
+  #view-login {
+    height: 100vh; display: flex; align-items: center; justify-content: center;
+  }
+  .login-card {
+    width: 360px; background: #fff; border-radius: 16px; padding: 36px 32px;
+    box-shadow: 0 8px 30px rgba(0,0,0,.08);
+  }
+  .login-card h1 { font-size: 22px; margin-bottom: 6px; }
+  .login-card .sub { color: #6b7280; font-size: 14px; margin-bottom: 24px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 13px; color: #374151; margin-bottom: 6px; }
+  .field input {
+    width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px;
+    font-size: 15px; outline: none;
+  }
+  .field input:focus { border-color: #3b82c4; }
+  .btn {
+    width: 100%; padding: 11px; border: none; border-radius: 8px; font-size: 15px;
+    background: #3b82c4; color: #fff; cursor: pointer;
+  }
+  .btn:hover { background: #2f6ea8; }
+  .error { color: #dc2626; font-size: 13px; margin-top: 10px; min-height: 18px; }
+
+  /* ---- 主界面 ---- */
+  #view-main { display: flex; height: 100vh; }
+  .sidebar {
+    width: 250px; background: #fff; border-right: 1px solid #e5e7eb;
+    display: flex; flex-direction: column;
+  }
+  .sidebar .me {
+    padding: 14px 16px; border-bottom: 1px solid #e5e7eb; font-size: 14px;
+  }
+  .sidebar .me b { color: #1f2937; }
+  .sidebar .me button {
+    float: right; border: 1px solid #d1d5db; background: #fff; border-radius: 6px;
+    padding: 3px 10px; font-size: 13px; cursor: pointer; color: #374151;
+  }
+  .sidebar .me button:hover { background: #f3f4f6; }
+  .user-list { flex: 1; overflow-y: auto; }
+  .user-item {
+    display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+    border-bottom: 1px solid #f3f4f6; cursor: pointer;
+  }
+  .user-item:hover { background: #f9fafb; }
+  .user-item.active { background: #eef4ff; }
+  .user-item .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot.online { background: #22c55e; }
+  .dot.offline { background: #9ca3af; }
+  .user-item .name { font-size: 15px; }
+  .user-item .status { margin-left: auto; font-size: 12px; color: #9ca3af; }
+
+  .chat { flex: 1; display: flex; flex-direction: column; background: #f7f8fa; }
+  .chat .chat-head {
+    padding: 14px 20px; background: #fff; border-bottom: 1px solid #e5e7eb;
+    font-size: 16px; font-weight: 600;
+  }
+  .chat .chat-head .back { display: none; }
+  .messages { flex: 1; overflow-y: auto; padding: 16px 20px; }
+  .msg { display: flex; margin-bottom: 10px; }
+  .msg.mine { justify-content: flex-end; }
+  .bubble {
+    max-width: 60%; padding: 9px 13px; border-radius: 12px; font-size: 15px;
+    line-height: 1.5; word-break: break-word; white-space: pre-wrap;
+  }
+  .msg.mine .bubble { background: #dbeafe; border-top-right-radius: 3px; }
+  .msg.theirs .bubble { background: #fff; border-top-left-radius: 3px; }
+  .bubble .meta { font-size: 11px; color: #9ca3af; margin-top: 4px; }
+  .chat .input-row {
+    display: flex; gap: 10px; padding: 12px 20px; background: #fff;
+    border-top: 1px solid #e5e7eb;
+  }
+  .chat .input-row input {
+    flex: 1; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px;
+    font-size: 15px; outline: none;
+  }
+  .chat .input-row input:focus { border-color: #3b82c4; }
+  .chat .input-row .btn { width: 90px; flex-shrink: 0; }
+  .empty-tip { color: #9ca3af; text-align: center; margin-top: 40px; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<!-- 登录 -->
+<div id="view-login">
+  <div class="login-card">
+    <h1>从零聊天</h1>
+    <div class="sub">电脑端 · 浏览器直接使用</div>
+    <div class="field">
+      <label>昵称</label>
+      <input id="nickname" placeholder="输入昵称，例如：小明" maxlength="20">
+    </div>
+    <div class="field">
+      <label>服务器地址</label>
+      <input id="serverUrl" placeholder="ws://localhost:3000">
+    </div>
+    <button class="btn" onclick="connect()">进入聊天</button>
+    <div class="error" id="loginError"></div>
+  </div>
+</div>
+
+<!-- 主界面 -->
+<div id="view-main" class="hidden">
+  <aside class="sidebar">
+    <div class="me">
+      <span id="myName"></span>
+      <button onclick="disconnect()">退出</button>
+    </div>
+    <div class="user-list" id="userList"></div>
+  </aside>
+  <main class="chat">
+    <div class="chat-head" id="chatHead">选择一个用户开始聊天</div>
+    <div class="messages" id="messages"></div>
+    <div class="input-row hidden" id="inputRow">
+      <input id="msgInput" placeholder="输入消息，回车发送" maxlength="2000">
+      <button class="btn" onclick="send()">发送</button>
+    </div>
+  </main>
+</div>
+
+<script>
+"use strict";
+
+const $ = (id) => document.getElementById(id);
+
+let ws = null;
+let myId = null;
+let myNickname = null;
+let users = [];                // 全部用户
+let messages = {};             // 对方 id -> 消息数组
+let currentPeer = null;        // 正在聊天的用户 id
+let connLost = false;
+
+// 默认服务器地址：若页面由后端提供（http://localhost:3000），自动取同源 ws 地址
+(function initUrl() {
+  const def = (location.protocol === "http:" || location.protocol === "https:")
+    ? (location.protocol.replace("http", "ws") + "//" + location.host)
+    : "ws://localhost:3000";
+  $("serverUrl").value = def;
+})();
+
+function showError(msg) {
+  $("loginError").textContent = msg;
+}
+
+/* ---------------- 连接 ---------------- */
+
+function connect() {
+  const nickname = $("nickname").value.trim();
+  const url = $("serverUrl").value.trim();
+  if (!nickname) { showError("昵称不能为空"); return; }
+
+  let socket;
+  try {
+    socket = new WebSocket(url);
+  } catch (_) {
+    showError("服务器地址格式不正确，应以 ws:// 开头");
+    return;
+  }
+  showError("");
+
+  socket.onopen = () => {
+    socket.send(JSON.stringify({ type: "register", nickname }));
+  };
+  socket.onmessage = (ev) => {
+    try { handle(JSON.parse(ev.data)); }
+    catch (_) { /* 忽略无法解析的消息 */ }
+  };
+  socket.onerror = () => {
+    showError("无法连接服务器：请确认后端已启动（npm start），且地址正确");
+  };
+  socket.onclose = () => {
+    if (myId && !connLost) {
+      alert("与服务器断开连接");
+      resetToLogin();
+    }
+  };
+  ws = socket;
+}
+
+function disconnect() {
+  connLost = true;
+  if (ws) { try { ws.close(); } catch (_) {} }
+  resetToLogin();
+}
+
+function resetToLogin() {
+  ws = null; myId = null; myNickname = null; users = [];
+  messages = {}; currentPeer = null; connLost = false;
+  $("view-main").classList.add("hidden");
+  $("view-login").classList.remove("hidden");
+}
+
+/* ---------------- 消息处理 ---------------- */
+
+function handle(data) {
+  switch (data.type) {
+    case "welcome":
+      myId = data.userId;
+      myNickname = data.nickname;
+      users = data.users || [];
+      enterMain();
+      break;
+    case "userList":
+      users = data.users || [];
+      renderUsers();
+      break;
+    case "message":
+      appendMessage(data);
+      break;
+    case "history":
+      messages[data.with] = data.messages || [];
+      if (currentPeer === data.with) renderMessages();
+      break;
+    case "error":
+      showError(data.message || "服务器错误");
+      break;
+  }
+}
+
+function enterMain() {
+  $("view-login").classList.add("hidden");
+  $("view-main").classList.remove("hidden");
+  $("myName").textContent = myNickname + "（" + myId + "）";
+  renderUsers();
+}
+
+/* ---------------- 渲染 ---------------- */
+
+function renderUsers() {
+  const listEl = $("userList");
+  listEl.textContent = "";
+  const others = users.filter((u) => u.id !== myId);
+  if (others.length === 0) {
+    const tip = document.createElement("div");
+    tip.className = "empty-tip";
+    tip.textContent = "还没有其他用户，用第二个窗口/设备登录另一个昵称吧";
+    listEl.appendChild(tip);
+    return;
+  }
+  others.forEach((u) => {
+    const item = document.createElement("div");
+    item.className = "user-item" + (u.id === currentPeer ? " active" : "");
+
+    const dot = document.createElement("span");
+    dot.className = "dot " + (u.online ? "online" : "offline");
+
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = u.nickname;
+
+    const status = document.createElement("span");
+    status.className = "status";
+    status.textContent = u.online ? "在线" : "离线";
+
+    item.appendChild(dot);
+    item.appendChild(name);
+    item.appendChild(status);
+    item.onclick = () => openChat(u.id);
+    listEl.appendChild(item);
+  });
+}
+
+function openChat(peerId) {
+  currentPeer = peerId;
+  const peer = users.find((u) => u.id === peerId);
+  $("chatHead").textContent = peer ? peer.nickname : peerId;
+  $("inputRow").classList.remove("hidden");
+  renderUsers();
+  renderMessages();
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: "history", with: peerId }));
+  }
+}
+
+function appendMessage(msg) {
+  const peer = msg.from === myId ? msg.to : msg.from;
+  if (!messages[peer]) messages[peer] = [];
+  const list = messages[peer];
+  const dup = list.some((m) => m.ts === msg.ts && m.from === msg.from && m.text === msg.text);
+  if (!dup) {
+    list.push(msg);
+    if (currentPeer === peer) renderMessages();
+  }
+}
+
+function renderMessages() {
+  const box = $("messages");
+  box.textContent = "";
+  const list = messages[currentPeer] || [];
+  if (list.length === 0) {
+    const tip = document.createElement("div");
+    tip.className = "empty-tip";
+    tip.textContent = "还没有消息，说点什么吧";
+    box.appendChild(tip);
+    return;
+  }
+  list.forEach((m) => {
+    const mine = m.from === myId;
+    const row = document.createElement("div");
+    row.className = "msg " + (mine ? "mine" : "theirs");
+
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    const text = document.createElement("div");
+    text.textContent = m.text;                       // 用 textContent 防注入
+    bubble.appendChild(text);
+
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    meta.textContent = (mine ? "" : m.fromNickname + " · ") + formatTime(m.ts);
+    bubble.appendChild(meta);
+
+    row.appendChild(bubble);
+    box.appendChild(row);
+  });
+  box.scrollTop = box.scrollHeight;
+}
+
+function send() {
+  const input = $("msgInput");
+  const text = input.value.trim();
+  if (!text || !currentPeer) return;
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    alert("连接已断开，请退出重新登录");
+    return;
+  }
+  ws.send(JSON.stringify({ type: "send", to: currentPeer, text }));
+  input.value = "";
+  input.focus();
+}
+
+function formatTime(ts) {
+  const d = new Date(ts);
+  const pad = (n) => String(n).padStart(2, "0");
+  return pad(d.getHours()) + ":" + pad(d.getMinutes());
+}
+
+/* 回车发送 */
+$("msgInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") send();
+});
+$("nickname").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") connect();
+});
+</script>
+</body>
+</html>
